@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Registration Form</title>
+  <style>
+    input, select {
+      margin: 8px;
+      padding: 6px;
+      width: 200px;
+    }
+    #suggestions {
+      border: 1px solid #ccc;
+      display: none;
+      position: absolute;
+      background: white;
+      width: 200px;
+    }
+    #suggestions div {
+      padding: 5px;
+      cursor: pointer;
+    }
+    #suggestions div:hover {
+      background-color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <h2>Register</h2>
+  <form id="registerForm">
+    <input type="text" name="name" placeholder="Name" required><br>
+    <input type="text" id="college" name="college" placeholder="College" autocomplete="off" required>
+    <div id="suggestions"></div>
+    <br>
+    <input type="text" id="username" name="username" placeholder="Username" required><br>
+    <input type="password" id="password" placeholder="Password" required><br>
+    <input type="password" id="confirmPassword" placeholder="Re-type Password" required><br>
+    <button type="submit">Register</button>
+    <p id="message"></p>
+  </form>
+
+  <script>
+    const usernameField = document.getElementById('username');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirmPassword');
+    const collegeField = document.getElementById('college');
+    const suggestions = document.getElementById('suggestions');
+    const form = document.getElementById('registerForm');
+    const message = document.getElementById('message');
+
+    let existingUsernames = [];
+
+    // Fetch existing usernames
+    function fetchUsernames() {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', '/usernames', true);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          existingUsernames = JSON.parse(xhr.responseText);
+        }
+      };
+      xhr.send();
+    }
+
+    // Auto-suggest colleges
+    collegeField.addEventListener('input', function () {
+      const val = collegeField.value;
+      if (!val) {
+        suggestions.style.display = 'none';
+        return;
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', '/suggest-college?query=' + val, true);
+      xhr.onload = function () {
+        const colleges = JSON.parse(xhr.responseText);
+        suggestions.innerHTML = '';
+        colleges.forEach(college => {
+          const div = document.createElement('div');
+          div.textContent = college;
+          div.onclick = () => {
+            collegeField.value = college;
+            suggestions.style.display = 'none';
+          };
+          suggestions.appendChild(div);
+        });
+        suggestions.style.display = colleges.length ? 'block' : 'none';
+      };
+      xhr.send();
+    });
+
+    // Form Submission
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const username = usernameField.value;
+      const pass = password.value;
+      const confirmPass = confirmPassword.value;
+      const college = collegeField.value;
+      const name = form.name.value;
+
+      if (existingUsernames.includes(username)) {
+        message.textContent = "Username already exists!";
+        message.style.color = "red";
+        return;
+      }
+
+      if (pass !== confirmPass) {
+        message.textContent = "Passwords do not match!";
+        message.style.color = "red";
+        return;
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/register', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          message.textContent = "Successfully Registered";
+          message.style.color = "green";
+          fetchUsernames(); // refresh username list
+        }
+      };
+      xhr.send(JSON.stringify({ name, college, username, password: pass }));
+    });
+
+    window.onload = fetchUsernames;
+  </script>
+</body>
+</html>
