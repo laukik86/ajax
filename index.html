@@ -1,130 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Registration Form</title>
+  <title>Registration Page</title>
   <style>
-    input, select {
-      margin: 8px;
-      padding: 6px;
-      width: 200px;
-    }
-    #suggestions {
-      border: 1px solid #ccc;
-      display: none;
-      position: absolute;
-      background: white;
-      width: 200px;
-    }
-    #suggestions div {
-      padding: 5px;
-      cursor: pointer;
-    }
-    #suggestions div:hover {
-      background-color: #eee;
-    }
+    input, select { margin: 5px 0; padding: 8px; width: 200px; }
+    .message { color: red; font-size: 14px; }
+    .success { color: green; font-size: 16px; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h2>Register</h2>
-  <form id="registerForm">
-    <input type="text" name="name" placeholder="Name" required><br>
-    <input type="text" id="college" name="college" placeholder="College" autocomplete="off" required>
-    <div id="suggestions"></div>
-    <br>
-    <input type="text" id="username" name="username" placeholder="Username" required><br>
-    <input type="password" id="password" placeholder="Password" required><br>
-    <input type="password" id="confirmPassword" placeholder="Re-type Password" required><br>
-    <button type="submit">Register</button>
-    <p id="message"></p>
+  <h2>Registration Form</h2>
+  <form id="regForm">
+    <label>Name:</label><br>
+    <input type="text" id="name" required><br>
+
+    <label>College:</label><br>
+    <input type="text" id="college" onkeyup="suggestCollege()" autocomplete="off" required>
+    <div id="collegeList" style="background:#eee;"></div><br>
+
+    <label>Username:</label><br>
+    <input type="text" id="username" onkeyup="checkUsername()" required>
+    <div id="usernameMsg" class="message"></div><br>
+
+    <label>Password:</label><br>
+    <input type="password" id="password" required><br>
+
+    <label>Confirm Password:</label><br>
+    <input type="password" id="confirmPassword" onkeyup="checkPasswordMatch()" required>
+    <div id="passMsg" class="message"></div><br>
+
+    <button type="button" onclick="registerUser()">Register</button>
   </form>
 
+  <div id="result" class="success"></div>
+
   <script>
-    const usernameField = document.getElementById('username');
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirmPassword');
-    const collegeField = document.getElementById('college');
-    const suggestions = document.getElementById('suggestions');
-    const form = document.getElementById('registerForm');
-    const message = document.getElementById('message');
+    const colleges = [
+      "IIT Bombay", "IIT Delhi", "NIT Trichy", "NIT Warangal",
+      "BITS Pilani", "VIT Vellore", "SRM University", "MIT Manipal",
+      "Delhi University", "Anna University"
+    ];
 
-    let existingUsernames = [];
-
-    // Fetch existing usernames
-    function fetchUsernames() {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', '/usernames', true);
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          existingUsernames = JSON.parse(xhr.responseText);
-        }
-      };
-      xhr.send();
+    function suggestCollege() {
+      const input = document.getElementById("college").value.toLowerCase();
+      let suggestions = colleges.filter(college =>
+        college.toLowerCase().startsWith(input)
+      );
+      document.getElementById("collegeList").innerHTML = suggestions
+        .map(c => `<div onclick="selectCollege('${c}')">${c}</div>`)
+        .join("");
     }
 
-    // Auto-suggest colleges
-    collegeField.addEventListener('input', function () {
-      const val = collegeField.value;
-      if (!val) {
-        suggestions.style.display = 'none';
-        return;
-      }
+    function selectCollege(name) {
+      document.getElementById("college").value = name;
+      document.getElementById("collegeList").innerHTML = "";
+    }
 
+    function checkUsername() {
+      const username = document.getElementById("username").value;
       const xhr = new XMLHttpRequest();
-      xhr.open('GET', '/suggest-college?query=' + val, true);
-      xhr.onload = function () {
-        const colleges = JSON.parse(xhr.responseText);
-        suggestions.innerHTML = '';
-        colleges.forEach(college => {
-          const div = document.createElement('div');
-          div.textContent = college;
-          div.onclick = () => {
-            collegeField.value = college;
-            suggestions.style.display = 'none';
-          };
-          suggestions.appendChild(div);
-        });
-        suggestions.style.display = colleges.length ? 'block' : 'none';
-      };
-      xhr.send();
-    });
-
-    // Form Submission
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-
-      const username = usernameField.value;
-      const pass = password.value;
-      const confirmPass = confirmPassword.value;
-      const college = collegeField.value;
-      const name = form.name.value;
-
-      if (existingUsernames.includes(username)) {
-        message.textContent = "Username already exists!";
-        message.style.color = "red";
-        return;
-      }
-
-      if (pass !== confirmPass) {
-        message.textContent = "Passwords do not match!";
-        message.style.color = "red";
-        return;
-      }
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/register', true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          message.textContent = "Successfully Registered";
-          message.style.color = "green";
-          fetchUsernames(); // refresh username list
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+          document.getElementById("usernameMsg").textContent = xhr.responseText;
         }
       };
-      xhr.send(JSON.stringify({ name, college, username, password: pass }));
-    });
+      xhr.open("POST", "/check-username", true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(JSON.stringify({ username }));
+    }
 
-    window.onload = fetchUsernames;
+    function checkPasswordMatch() {
+      const pass = document.getElementById("password").value;
+      const confirmPass = document.getElementById("confirmPassword").value;
+      document.getElementById("passMsg").textContent =
+        pass !== confirmPass ? "Passwords do not match" : "";
+    }
+
+    function registerUser() {
+      const name = document.getElementById("name").value;
+      const college = document.getElementById("college").value;
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+
+      if (password !== confirmPassword) {
+        document.getElementById("passMsg").textContent = "Passwords do not match";
+        return;
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+          document.getElementById("result").textContent = xhr.responseText;
+        }
+      };
+      xhr.open("POST", "/register", true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(JSON.stringify({ name, college, username, password }));
+    }
   </script>
 </body>
 </html>
